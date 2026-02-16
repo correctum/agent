@@ -12,9 +12,10 @@ import (
 )
 
 var (
-	logFile *os.File
-	err     error
-	isDebug bool
+	logFile           *os.File
+	err               error
+	isDebug           bool
+	pathConfiguration string
 )
 
 func init() {
@@ -25,18 +26,23 @@ func init() {
 	}
 	log.Logger = log.Output(io.MultiWriter(zerolog.ConsoleWriter{Out: os.Stdout}, logFile))
 	flag.BoolVar(&isDebug, "debug", false, "debug mode")
+	flag.StringVar(&pathConfiguration, "configuration", "configuration.json", "configuration's path")
 }
 
 func main() {
 	defer deinit()
 	flag.Parse()
+	var err = loadConfiguration()
+	if err != nil {
+		log.Fatal().Err(err).Msg("Не удалось загрузить конфигурацию")
+	}
 	if isDebug {
-		err := debug.Run("correctum-agent", &service{})
+		err = debug.Run("correctum-agent", &service{})
 		if err != nil {
 			log.Fatal().Err(err).Msg("")
 		}
 	} else {
-		err := svc.Run("correctum-agent", &service{})
+		err = svc.Run("correctum-agent", &service{})
 		if err != nil {
 			log.Fatal().Err(err).Msg("")
 		}
