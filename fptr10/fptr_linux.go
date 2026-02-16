@@ -4,8 +4,6 @@
 
 package fptr10
 
-import "C"
-
 /*
 #cgo LDFLAGS: -ldl
 #include <dlfcn.h>
@@ -15,9 +13,10 @@ import "C"
 import (
 	"fmt"
 	"os"
-	"path/filepath"
 	"unsafe"
 )
+
+const driverFileName = "libfptr10.so"
 
 func getProcAddress(lib unsafe.Pointer, name string) unsafe.Pointer {
 	addr := C.dlsym(lib, C.CString(name))
@@ -30,17 +29,17 @@ func getProcAddress(lib unsafe.Pointer, name string) unsafe.Pointer {
 
 func doLoadLibrary(path string) (unsafe.Pointer, error) {
 	if path == "" {
-		path = "libfptr10.so"
+		path = driverFileName
 	}
 
-	if path != "libfptr10.so" {
+	if path != driverFileName {
 		fi, err := os.Stat(path)
 		if err != nil {
 			return nil, fmt.Errorf("can't load library \"%s\" - %s", path, err)
 		}
 
 		if fi.IsDir() {
-			path = filepath.Join(path, "libfptr10.so")
+			path = filepath.Join(path, driverFileName)
 		}
 	}
 

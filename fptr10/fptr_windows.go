@@ -19,6 +19,8 @@ import (
 	"golang.org/x/sys/windows/registry"
 )
 
+const driverFileName = "fptr10.dll"
+
 func getProcAddress(lib windows.Handle, name string) unsafe.Pointer {
 	addr, err := windows.GetProcAddress(lib, name)
 	if err != nil {
@@ -30,17 +32,17 @@ func getProcAddress(lib windows.Handle, name string) unsafe.Pointer {
 
 func doLoadLibrary(path string) (windows.Handle, error) {
 	if path == "" {
-		path = "fptr10.dll"
+		path = driverFileName
 	}
 
-	if path != "fptr10.dll" {
+	if path != driverFileName {
 		fi, err := os.Stat(path)
 		if err != nil {
 			return 0, fmt.Errorf("can't load library \"%s\" - %s", path, err)
 		}
 
 		if fi.IsDir() {
-			path = filepath.Join(path, "fptr10.dll")
+			path = filepath.Join(path, driverFileName)
 		}
 	}
 
@@ -65,7 +67,7 @@ func getLibPath() string {
 			libPath = filepath.Join(installDir, "bin")
 		}
 	}
-	libPath = filepath.Join(libPath, "fptr10.dll")
+	libPath = filepath.Join(libPath, driverFileName)
 	key.Close()
 	return libPath
 }

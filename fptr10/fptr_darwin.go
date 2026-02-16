@@ -4,8 +4,6 @@
 
 package fptr10
 
-import "C"
-
 /*
 #cgo LDFLAGS: -ldl
 #include <dlfcn.h>

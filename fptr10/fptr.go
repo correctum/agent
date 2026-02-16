@@ -1779,7 +1779,7 @@ type functionPointers struct {
 
 func New() *IFptr {
 	fptr := IFptr{}
-	if err := fptr.create(""); err != nil {
+	if fptr.create("") != nil {
 		return nil
 	}
 	return &fptr
@@ -1809,7 +1809,7 @@ func NewWithID(id string) (*IFptr, error) {
 	return &fptr, nil
 }
 
-func NewWithIDAndPath(id string, path string) (*IFptr, error) {
+func NewWithIDAndPath(id, path string) (*IFptr, error) {
 	fptr := IFptr{}
 	if err := fptr.createWithID(id, path); err != nil {
 		return nil, err
@@ -1839,7 +1839,7 @@ func (fptr *IFptr) create(path string) (err error) {
 	return nil
 }
 
-func (fptr *IFptr) createWithID(id string, path string) (err error) {
+func (fptr *IFptr) createWithID(id, path string) (err error) {
 	functions, err := loadLibrary(path)
 	if err != nil {
 		return
@@ -1894,7 +1894,7 @@ func (fptr *IFptr) GetSettings() string {
 	return str
 }
 
-func (fptr *IFptr) SetSingleSetting(key string, value string) {
+func (fptr *IFptr) SetSingleSetting(key, value string) {
 	k, _ := StringToWcharT(key)
 	val, _ := StringToWcharT(value)
 	C.bridge_libfptr_set_single_setting_func(fptr.functions.libfptr_set_single_setting, fptr.nativePointer, k, val)
@@ -1953,213 +1953,163 @@ func (fptr *IFptr) ResetError() {
 	C.bridge_libfptr_reset_error_func(fptr.functions.libfptr_reset_error, fptr.nativePointer)
 }
 
+func (fptr *IFptr) setParamInteger(paramId int32, p int) {
+	if p < 0 {
+		fptr.setParamDouble(paramId, float64(p))
+	} else {
+		fptr.setParamUInteger(paramId, uint(p))
+	}
+}
+
+func (fptr *IFptr) setParamUInteger(paramId int32, p uint) {
+	if uint(p) > math.MaxUint32 {
+		panic(fmt.Sprintf("Invalid parameter value %v", p))
+	}
+	C.bridge_libfptr_set_param_int_func(fptr.functions.libfptr_set_param_int, fptr.nativePointer, C.int(paramId), C.uint(p))
+}
+
+func (fptr *IFptr) setParamBoolean(paramId int32, p bool) {
+	boolParam := 0
+	if p {
+		boolParam = 1
+	}
+	C.bridge_libfptr_set_param_bool_func(fptr.functions.libfptr_set_param_bool, fptr.nativePointer, C.int(paramId), C.int(boolParam))
+}
+
+func (fptr *IFptr) setParamString(paramId int32, p string) {
+	buf, _ := StringToWcharT(p)
+	C.bridge_libfptr_set_param_str_func(fptr.functions.libfptr_set_param_str, fptr.nativePointer, C.int(paramId), buf)
+}
+
+func (fptr *IFptr) setParamTime(paramId int32, p time.Time) {
+	C.bridge_libfptr_set_param_datetime_func(fptr.functions.libfptr_set_param_datetime, fptr.nativePointer, C.int(paramId),
+		C.int(p.Year()), C.int(p.Month()), C.int(p.Day()),
+		C.int(p.Hour()), C.int(p.Minute()), C.int(p.Second()))
+}
+
+func (fptr *IFptr) setParamDouble(paramId int32, p float64) {
+	C.bridge_libfptr_set_param_double_func(fptr.functions.libfptr_set_param_double, fptr.nativePointer, C.int(paramId), C.double(p))
+}
+
+func (fptr *IFptr) setParamBytes(paramId int32, p []byte) {
+	C.bridge_libfptr_set_param_bytearray_func(fptr.functions.libfptr_set_param_bytearray, fptr.nativePointer, C.int(paramId),
+		(*C.uchar)(&p[0]), C.int(len(p)))
+}
+
 func (fptr *IFptr) SetParam(paramId int32, param interface{}) {
 	switch p := param.(type) {
 	case int:
-		{
-			if p < 0 {
-				C.bridge_libfptr_set_param_double_func(fptr.functions.libfptr_set_param_double, fptr.nativePointer, C.int(paramId), C.double(p))
-			} else {
-				if uint(p) > math.MaxUint32 {
-					panic(fmt.Sprintf("Invalid parameter value %v", p))
-				}
-				C.bridge_libfptr_set_param_int_func(fptr.functions.libfptr_set_param_int, fptr.nativePointer, C.int(paramId), C.uint(p))
-			}
-		}
+		fptr.setParamInteger(paramId, p)
 	case int8:
-		{
-			if p < 0 {
-				C.bridge_libfptr_set_param_double_func(fptr.functions.libfptr_set_param_double, fptr.nativePointer, C.int(paramId), C.double(p))
-			} else {
-				C.bridge_libfptr_set_param_int_func(fptr.functions.libfptr_set_param_int, fptr.nativePointer, C.int(paramId), C.uint(p))
-			}
-		}
+		fptr.setParamInteger(paramId, int(p))
 	case int16:
-		{
-			if p < 0 {
-				C.bridge_libfptr_set_param_double_func(fptr.functions.libfptr_set_param_double, fptr.nativePointer, C.int(paramId), C.double(p))
-			} else {
-				C.bridge_libfptr_set_param_int_func(fptr.functions.libfptr_set_param_int, fptr.nativePointer, C.int(paramId), C.uint(p))
-			}
-		}
+		fptr.setParamInteger(paramId, int(p))
 	case int32:
-		{
-			if p < 0 {
-				C.bridge_libfptr_set_param_double_func(fptr.functions.libfptr_set_param_double, fptr.nativePointer, C.int(paramId), C.double(p))
-			} else {
-				C.bridge_libfptr_set_param_int_func(fptr.functions.libfptr_set_param_int, fptr.nativePointer, C.int(paramId), C.uint(p))
-			}
-		}
+		fptr.setParamInteger(paramId, int(p))
 	case uint:
-		{
-			if uint(p) > math.MaxUint32 {
-				panic(fmt.Sprintf("Invalid parameter value %v", p))
-			}
-			C.bridge_libfptr_set_param_int_func(fptr.functions.libfptr_set_param_int, fptr.nativePointer, C.int(paramId), C.uint(p))
-		}
+		fptr.setParamUInteger(paramId, p)
 	case uint8:
-		{
-			C.bridge_libfptr_set_param_int_func(fptr.functions.libfptr_set_param_int, fptr.nativePointer, C.int(paramId), C.uint(p))
-		}
+		fptr.setParamUInteger(paramId, uint(p))
 	case uint16:
-		{
-			C.bridge_libfptr_set_param_int_func(fptr.functions.libfptr_set_param_int, fptr.nativePointer, C.int(paramId), C.uint(p))
-		}
+		fptr.setParamUInteger(paramId, uint(p))
 	case uint32:
-		{
-			C.bridge_libfptr_set_param_int_func(fptr.functions.libfptr_set_param_int, fptr.nativePointer, C.int(paramId), C.uint(p))
-		}
+		fptr.setParamUInteger(paramId, uint(p))
 	case bool:
-		{
-			boolParam := 0
-			if p {
-				boolParam = 1
-			}
-			C.bridge_libfptr_set_param_bool_func(fptr.functions.libfptr_set_param_bool, fptr.nativePointer, C.int(paramId), C.int(boolParam))
-		}
+		fptr.setParamBoolean(paramId, p)
 	case string:
-		{
-			buf, _ := StringToWcharT(p)
-			C.bridge_libfptr_set_param_str_func(fptr.functions.libfptr_set_param_str, fptr.nativePointer, C.int(paramId), buf)
-		}
+		fptr.setParamString(paramId, p)
 	case time.Time:
-		{
-			C.bridge_libfptr_set_param_datetime_func(fptr.functions.libfptr_set_param_datetime, fptr.nativePointer, C.int(paramId),
-				C.int(p.Year()), C.int(p.Month()), C.int(p.Day()),
-				C.int(p.Hour()), C.int(p.Minute()), C.int(p.Second()))
-		}
+		fptr.setParamTime(paramId, p)
 	case float32:
-		{
-			C.bridge_libfptr_set_param_double_func(fptr.functions.libfptr_set_param_double, fptr.nativePointer, C.int(paramId), C.double(p))
-		}
+		fptr.setParamDouble(paramId, float64(p))
 	case float64:
-		{
-			C.bridge_libfptr_set_param_double_func(fptr.functions.libfptr_set_param_double, fptr.nativePointer, C.int(paramId), C.double(p))
-		}
+		fptr.setParamDouble(paramId, p)
 	case []byte:
-		{
-			C.bridge_libfptr_set_param_bytearray_func(fptr.functions.libfptr_set_param_bytearray, fptr.nativePointer, C.int(paramId),
-				(*C.uchar)(&p[0]), C.int(len(p)))
-		}
+		fptr.setParamBytes(paramId, p)
 	case bytes.Buffer:
-		{
-			bytesParam := p.Bytes()
-			C.bridge_libfptr_set_param_bytearray_func(fptr.functions.libfptr_set_param_bytearray, fptr.nativePointer, C.int(paramId),
-				(*C.uchar)(&bytesParam[0]), C.int(len(bytesParam)))
-		}
+		fptr.setParamBytes(paramId, p.Bytes())
 	case *bytes.Buffer:
-		{
-			bytesParam := p.Bytes()
-			C.bridge_libfptr_set_param_bytearray_func(fptr.functions.libfptr_set_param_bytearray, fptr.nativePointer, C.int(paramId),
-				(*C.uchar)(&bytesParam[0]), C.int(len(bytesParam)))
-		}
+		fptr.setParamBytes(paramId, p.Bytes())
 	default:
 		{
 			panic(fmt.Sprintf("Invalid parameter type %T", p))
 		}
 	}
+}
+
+func (fptr *IFptr) setUserParamInteger(paramId int32, p int) {
+	if p < 0 {
+		fptr.setUserParamDouble(paramId, float64(p))
+	} else {
+		fptr.setUserParamUInteger(paramId, uint(p))
+	}
+}
+
+func (fptr *IFptr) setUserParamString(paramId int32, p string) {
+	buf, _ := StringToWcharT(p)
+	C.bridge_libfptr_set_param_str_func(fptr.functions.libfptr_set_user_param_str, fptr.nativePointer, C.int(paramId), buf)
+}
+func (fptr *IFptr) setUserParamTime(paramId int32, p time.Time) {
+	C.bridge_libfptr_set_param_datetime_func(fptr.functions.libfptr_set_user_param_datetime, fptr.nativePointer, C.int(paramId),
+		C.int(p.Year()), C.int(p.Month()), C.int(p.Day()),
+		C.int(p.Hour()), C.int(p.Minute()), C.int(p.Second()))
+}
+func (fptr *IFptr) setUserParamBoolean(paramId int32, p bool) {
+	boolParam := 0
+	if p {
+		boolParam = 1
+	}
+	C.bridge_libfptr_set_param_bool_func(fptr.functions.libfptr_set_user_param_bool, fptr.nativePointer, C.int(paramId), C.int(boolParam))
+}
+func (fptr *IFptr) setUserParamBytes(paramId int32, p []byte) {
+	C.bridge_libfptr_set_param_bytearray_func(fptr.functions.libfptr_set_user_param_bytearray, fptr.nativePointer, C.int(paramId),
+		(*C.uchar)(&p[0]), C.int(len(p)))
+}
+func (fptr *IFptr) setUserParamDouble(paramId int32, p float64) {
+	C.bridge_libfptr_set_param_double_func(fptr.functions.libfptr_set_user_param_double, fptr.nativePointer, C.int(paramId), C.double(p))
+}
+
+func (fptr *IFptr) setUserParamUInteger(paramId int32, p uint) {
+	if uint(p) > math.MaxUint32 {
+		panic(fmt.Sprintf("Invalid parameter value %v", p))
+	}
+	C.bridge_libfptr_set_param_int_func(fptr.functions.libfptr_set_user_param_int, fptr.nativePointer, C.int(paramId), C.uint(p))
 }
 
 func (fptr *IFptr) SetUserParam(paramId int32, param interface{}) {
 	switch p := param.(type) {
 	case int:
-		{
-			if p < 0 {
-				C.bridge_libfptr_set_param_double_func(fptr.functions.libfptr_set_user_param_double, fptr.nativePointer, C.int(paramId), C.double(p))
-			} else {
-				if uint(p) > math.MaxUint32 {
-					panic(fmt.Sprintf("Invalid parameter value %v", p))
-				}
-				C.bridge_libfptr_set_param_int_func(fptr.functions.libfptr_set_user_param_int, fptr.nativePointer, C.int(paramId), C.uint(p))
-			}
-		}
+		fptr.setUserParamInteger(paramId, p)
 	case int8:
-		{
-			if p < 0 {
-				C.bridge_libfptr_set_param_double_func(fptr.functions.libfptr_set_user_param_double, fptr.nativePointer, C.int(paramId), C.double(p))
-			} else {
-				C.bridge_libfptr_set_param_int_func(fptr.functions.libfptr_set_user_param_int, fptr.nativePointer, C.int(paramId), C.uint(p))
-			}
-		}
+		fptr.setUserParamInteger(paramId, int(p))
 	case int16:
-		{
-			if p < 0 {
-				C.bridge_libfptr_set_param_double_func(fptr.functions.libfptr_set_user_param_double, fptr.nativePointer, C.int(paramId), C.double(p))
-			} else {
-				C.bridge_libfptr_set_param_int_func(fptr.functions.libfptr_set_user_param_int, fptr.nativePointer, C.int(paramId), C.uint(p))
-			}
-		}
+		fptr.setUserParamInteger(paramId, int(p))
 	case int32:
-		{
-			if p < 0 {
-				C.bridge_libfptr_set_param_double_func(fptr.functions.libfptr_set_user_param_double, fptr.nativePointer, C.int(paramId), C.double(p))
-			} else {
-				C.bridge_libfptr_set_param_int_func(fptr.functions.libfptr_set_user_param_int, fptr.nativePointer, C.int(paramId), C.uint(p))
-			}
-		}
+		fptr.setUserParamInteger(paramId, int(p))
 	case uint:
-		{
-			if uint(p) > math.MaxUint32 {
-				panic(fmt.Sprintf("Invalid parameter value %v", p))
-			}
-			C.bridge_libfptr_set_param_int_func(fptr.functions.libfptr_set_user_param_int, fptr.nativePointer, C.int(paramId), C.uint(p))
-		}
+		fptr.setUserParamUInteger(paramId, p)
 	case uint8:
-		{
-			C.bridge_libfptr_set_param_int_func(fptr.functions.libfptr_set_user_param_int, fptr.nativePointer, C.int(paramId), C.uint(p))
-		}
+		fptr.setUserParamUInteger(paramId, uint(p))
 	case uint16:
-		{
-			C.bridge_libfptr_set_param_int_func(fptr.functions.libfptr_set_user_param_int, fptr.nativePointer, C.int(paramId), C.uint(p))
-		}
+		fptr.setUserParamUInteger(paramId, uint(p))
 	case uint32:
-		{
-			C.bridge_libfptr_set_param_int_func(fptr.functions.libfptr_set_user_param_int, fptr.nativePointer, C.int(paramId), C.uint(p))
-		}
+		fptr.setUserParamUInteger(paramId, uint(p))
 	case bool:
-		{
-			boolParam := 0
-			if p {
-				boolParam = 1
-			}
-			C.bridge_libfptr_set_param_bool_func(fptr.functions.libfptr_set_user_param_bool, fptr.nativePointer, C.int(paramId), C.int(boolParam))
-		}
+		fptr.setUserParamBoolean(paramId, p)
 	case string:
-		{
-			buf, _ := StringToWcharT(p)
-			C.bridge_libfptr_set_param_str_func(fptr.functions.libfptr_set_user_param_str, fptr.nativePointer, C.int(paramId), buf)
-		}
+		fptr.setUserParamString(paramId, p)
 	case time.Time:
-		{
-			C.bridge_libfptr_set_param_datetime_func(fptr.functions.libfptr_set_user_param_datetime, fptr.nativePointer, C.int(paramId),
-				C.int(p.Year()), C.int(p.Month()), C.int(p.Day()),
-				C.int(p.Hour()), C.int(p.Minute()), C.int(p.Second()))
-		}
+		fptr.setUserParamTime(paramId, p)
 	case float32:
-		{
-			C.bridge_libfptr_set_param_double_func(fptr.functions.libfptr_set_user_param_double, fptr.nativePointer, C.int(paramId), C.double(p))
-		}
+		fptr.setUserParamDouble(paramId, float64(p))
 	case float64:
-		{
-			C.bridge_libfptr_set_param_double_func(fptr.functions.libfptr_set_user_param_double, fptr.nativePointer, C.int(paramId), C.double(p))
-		}
+		fptr.setUserParamDouble(paramId, p)
 	case []byte:
-		{
-			C.bridge_libfptr_set_param_bytearray_func(fptr.functions.libfptr_set_user_param_bytearray, fptr.nativePointer, C.int(paramId),
-				(*C.uchar)(&p[0]), C.int(len(p)))
-		}
+		fptr.setUserParamBytes(paramId, p)
 	case bytes.Buffer:
-		{
-			bytesParam := p.Bytes()
-			C.bridge_libfptr_set_param_bytearray_func(fptr.functions.libfptr_set_user_param_bytearray, fptr.nativePointer, C.int(paramId),
-				(*C.uchar)(&bytesParam[0]), C.int(len(bytesParam)))
-		}
+		fptr.setUserParamBytes(paramId, p.Bytes())
 	case *bytes.Buffer:
-		{
-			bytesParam := p.Bytes()
-			C.bridge_libfptr_set_param_bytearray_func(fptr.functions.libfptr_set_user_param_bytearray, fptr.nativePointer, C.int(paramId),
-				(*C.uchar)(&bytesParam[0]), C.int(len(bytesParam)))
-		}
+		fptr.setUserParamBytes(paramId, p.Bytes())
 	default:
 		{
 			panic(fmt.Sprintf("Invalid parameter type %T", p))
@@ -2167,106 +2117,84 @@ func (fptr *IFptr) SetUserParam(paramId int32, param interface{}) {
 	}
 }
 
+func (fptr *IFptr) setNonPrintableParamInteger(paramId int32, p int) {
+	if p < 0 {
+		fptr.setNonPrintableParamDouble(paramId, float64(p))
+	} else {
+		fptr.setNonPrintableParamUInteger(paramId, uint(p))
+	}
+}
+
+func (fptr *IFptr) setNonPrintableParamUInteger(paramId int32, p uint) {
+
+	if uint(p) > math.MaxUint32 {
+		panic(fmt.Sprintf("Invalid parameter value %v", p))
+	}
+	C.bridge_libfptr_set_param_int_func(fptr.functions.libfptr_set_non_printable_param_int, fptr.nativePointer, C.int(paramId), C.uint(p))
+}
+
+func (fptr *IFptr) setNonPrintableParamBytes(paramId int32, p []byte) {
+	C.bridge_libfptr_set_param_bytearray_func(fptr.functions.libfptr_set_non_printable_param_bytearray, fptr.nativePointer, C.int(paramId),
+		(*C.uchar)(&p[0]), C.int(len(p)))
+}
+
+func (fptr *IFptr) setNonPrintableParamBoolean(paramId int32, p bool) {
+	boolParam := 0
+	if p {
+		boolParam = 1
+	}
+	C.bridge_libfptr_set_param_bool_func(fptr.functions.libfptr_set_non_printable_param_bool, fptr.nativePointer, C.int(paramId), C.int(boolParam))
+}
+
+func (fptr *IFptr) setNonPrintableParamString(paramId int32, p string) {
+	buf, _ := StringToWcharT(p)
+	C.bridge_libfptr_set_param_str_func(fptr.functions.libfptr_set_non_printable_param_str, fptr.nativePointer, C.int(paramId), buf)
+}
+
+func (fptr *IFptr) setNonPrintableParamTime(paramId int32, p time.Time) {
+	C.bridge_libfptr_set_param_datetime_func(fptr.functions.libfptr_set_non_printable_param_datetime, fptr.nativePointer, C.int(paramId),
+		C.int(p.Year()), C.int(p.Month()), C.int(p.Day()),
+		C.int(p.Hour()), C.int(p.Minute()), C.int(p.Second()))
+}
+
+func (fptr *IFptr) setNonPrintableParamDouble(paramId int32, p float64) {
+	C.bridge_libfptr_set_param_double_func(fptr.functions.libfptr_set_non_printable_param_double, fptr.nativePointer, C.int(paramId), C.double(p))
+}
+
 func (fptr *IFptr) SetNonPrintableParam(paramId int32, param interface{}) {
 	switch p := param.(type) {
 	case int:
-		{
-			if p < 0 {
-				C.bridge_libfptr_set_param_double_func(fptr.functions.libfptr_set_non_printable_param_double, fptr.nativePointer, C.int(paramId), C.double(p))
-			} else {
-				if uint(p) > math.MaxUint32 {
-					panic(fmt.Sprintf("Invalid parameter value %v", p))
-				}
-				C.bridge_libfptr_set_param_int_func(fptr.functions.libfptr_set_non_printable_param_int, fptr.nativePointer, C.int(paramId), C.uint(p))
-			}
-		}
+		fptr.setNonPrintableParamInteger(paramId, p)
 	case int8:
-		{
-			if p < 0 {
-				C.bridge_libfptr_set_param_double_func(fptr.functions.libfptr_set_non_printable_param_double, fptr.nativePointer, C.int(paramId), C.double(p))
-			} else {
-				C.bridge_libfptr_set_param_int_func(fptr.functions.libfptr_set_non_printable_param_int, fptr.nativePointer, C.int(paramId), C.uint(p))
-			}
-		}
+		fptr.setNonPrintableParamInteger(paramId, int(p))
 	case int16:
-		{
-			if p < 0 {
-				C.bridge_libfptr_set_param_double_func(fptr.functions.libfptr_set_non_printable_param_double, fptr.nativePointer, C.int(paramId), C.double(p))
-			} else {
-				C.bridge_libfptr_set_param_int_func(fptr.functions.libfptr_set_non_printable_param_int, fptr.nativePointer, C.int(paramId), C.uint(p))
-			}
-		}
+		fptr.setNonPrintableParamInteger(paramId, int(p))
 	case int32:
-		{
-			if p < 0 {
-				C.bridge_libfptr_set_param_double_func(fptr.functions.libfptr_set_non_printable_param_double, fptr.nativePointer, C.int(paramId), C.double(p))
-			} else {
-				C.bridge_libfptr_set_param_int_func(fptr.functions.libfptr_set_non_printable_param_int, fptr.nativePointer, C.int(paramId), C.uint(p))
-			}
-		}
+		fptr.setNonPrintableParamInteger(paramId, int(p))
 	case uint:
-		{
-			if uint(p) > math.MaxUint32 {
-				panic(fmt.Sprintf("Invalid parameter value %v", p))
-			}
-			C.bridge_libfptr_set_param_int_func(fptr.functions.libfptr_set_non_printable_param_int, fptr.nativePointer, C.int(paramId), C.uint(p))
-		}
+		fptr.setNonPrintableParamUInteger(paramId, p)
 	case uint8:
-		{
-			C.bridge_libfptr_set_param_int_func(fptr.functions.libfptr_set_non_printable_param_int, fptr.nativePointer, C.int(paramId), C.uint(p))
-		}
+		fptr.setNonPrintableParamUInteger(paramId, uint(p))
 	case uint16:
-		{
-			C.bridge_libfptr_set_param_int_func(fptr.functions.libfptr_set_non_printable_param_int, fptr.nativePointer, C.int(paramId), C.uint(p))
-		}
+		fptr.setNonPrintableParamUInteger(paramId, uint(p))
 	case uint32:
-		{
-			C.bridge_libfptr_set_param_int_func(fptr.functions.libfptr_set_non_printable_param_int, fptr.nativePointer, C.int(paramId), C.uint(p))
-		}
+		fptr.setNonPrintableParamUInteger(paramId, uint(p))
 	case bool:
-		{
-			boolParam := 0
-			if p {
-				boolParam = 1
-			}
-			C.bridge_libfptr_set_param_bool_func(fptr.functions.libfptr_set_non_printable_param_bool, fptr.nativePointer, C.int(paramId), C.int(boolParam))
-		}
+		fptr.setNonPrintableParamBoolean(paramId, p)
 	case string:
-		{
-			buf, _ := StringToWcharT(p)
-			C.bridge_libfptr_set_param_str_func(fptr.functions.libfptr_set_non_printable_param_str, fptr.nativePointer, C.int(paramId), buf)
-		}
+		fptr.setNonPrintableParamString(paramId, p)
 	case time.Time:
-		{
-			C.bridge_libfptr_set_param_datetime_func(fptr.functions.libfptr_set_non_printable_param_datetime, fptr.nativePointer, C.int(paramId),
-				C.int(p.Year()), C.int(p.Month()), C.int(p.Day()),
-				C.int(p.Hour()), C.int(p.Minute()), C.int(p.Second()))
-		}
+		fptr.setNonPrintableParamTime(paramId, p)
 	case float32:
-		{
-			C.bridge_libfptr_set_param_double_func(fptr.functions.libfptr_set_non_printable_param_double, fptr.nativePointer, C.int(paramId), C.double(p))
-		}
+		fptr.setNonPrintableParamDouble(paramId, float64(p))
 	case float64:
-		{
-			C.bridge_libfptr_set_param_double_func(fptr.functions.libfptr_set_non_printable_param_double, fptr.nativePointer, C.int(paramId), C.double(p))
-		}
+		fptr.setNonPrintableParamDouble(paramId, p)
 	case []byte:
-		{
-			C.bridge_libfptr_set_param_bytearray_func(fptr.functions.libfptr_set_non_printable_param_bytearray, fptr.nativePointer, C.int(paramId),
-				(*C.uchar)(&p[0]), C.int(len(p)))
-		}
+		fptr.setNonPrintableParamBytes(paramId, p)
 	case bytes.Buffer:
-		{
-			bytesParam := p.Bytes()
-			C.bridge_libfptr_set_param_bytearray_func(fptr.functions.libfptr_set_non_printable_param_bytearray, fptr.nativePointer, C.int(paramId),
-				(*C.uchar)(&bytesParam[0]), C.int(len(bytesParam)))
-		}
+		fptr.setNonPrintableParamBytes(paramId, p.Bytes())
 	case *bytes.Buffer:
-		{
-			bytesParam := p.Bytes()
-			C.bridge_libfptr_set_param_bytearray_func(fptr.functions.libfptr_set_non_printable_param_bytearray, fptr.nativePointer, C.int(paramId),
-				(*C.uchar)(&bytesParam[0]), C.int(len(bytesParam)))
-		}
+		fptr.setNonPrintableParamBytes(paramId, p.Bytes())
 	default:
 		{
 			panic(fmt.Sprintf("Invalid parameter type %T", p))
@@ -2347,8 +2275,8 @@ func (fptr *IFptr) ChangeLabel(label string) error {
 	return &Error{fptr.ErrorCode(), fptr.ErrorDescription()}
 }
 
-func (fptr *IFptr) ShowProperties(parent_type int, parent unsafe.Pointer) error {
-	err := C.bridge_libfptr_show_properties_func(fptr.functions.libfptr_show_properties, fptr.nativePointer, C.uint(parent_type), parent)
+func (fptr *IFptr) ShowProperties(parentType int, parent unsafe.Pointer) error {
+	err := C.bridge_libfptr_show_properties_func(fptr.functions.libfptr_show_properties, fptr.nativePointer, C.uint(parentType), parent)
 	if err == 0 {
 		return nil
 	}
